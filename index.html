@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ResellerScan — Amazon + Mercado Libre</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #111111;
+    --surface2: #1a1a1a;
+    --border: #2a2a2a;
+    --accent: #f59e0b;
+    --accent-ml: #ffe600;
+    --accent2: #ef4444;
+    --accent3: #10b981;
+    --text: #e8e8e8;
+    --muted: #666;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; }
+
+  /* SETUP */
+  #setup-screen { position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center; z-index:100; padding:24px; }
+  #setup-screen.hidden { display:none; }
+  .setup-card { background:var(--surface); border:1px solid var(--border); border-top:3px solid var(--accent); padding:48px; max-width:480px; width:100%; }
+  .setup-card .logo { font-size:11px; font-family:var(--mono); color:var(--accent); letter-spacing:4px; text-transform:uppercase; margin-bottom:32px; }
+  .setup-card h1 { font-size:32px; font-weight:800; line-height:1.1; margin-bottom:12px; }
+  .setup-card p { color:var(--muted); font-size:14px; margin-bottom:32px; line-height:1.6; }
+  .setup-card a { color:var(--accent); text-decoration:none; }
+  .setup-note { background:var(--surface2); border-left:3px solid var(--accent3); padding:12px 14px; font-family:var(--mono); font-size:11px; color:var(--accent3); letter-spacing:1px; margin-bottom:24px; line-height:1.6; }
+  .field-label { font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; display:block; }
+  .field-input { width:100%; background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:var(--mono); font-size:13px; padding:14px 16px; outline:none; transition:border-color .2s; }
+  .field-input:focus { border-color:var(--accent); }
+  .btn-primary { width:100%; background:var(--accent); color:#000; border:none; font-family:var(--sans); font-weight:800; font-size:14px; letter-spacing:2px; text-transform:uppercase; padding:16px; cursor:pointer; margin-top:20px; transition:opacity .2s; }
+  .btn-primary:hover { opacity:.85; }
+
+  /* HEADER */
+  #app { position:relative; z-index:1; }
+  #app.hidden { display:none; }
+  header { background:var(--surface); border-bottom:1px solid var(--border); padding:0 24px; display:flex; align-items:center; justify-content:space-between; height:60px; position:sticky; top:0; z-index:50; }
+  .header-logo { font-family:var(--mono); font-size:13px; color:var(--accent); letter-spacing:3px; }
+  .header-api { display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:11px; color:var(--muted); }
+  .api-dot { width:8px; height:8px; background:var(--accent3); border-radius:50%; animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .btn-reset-key { background:none; border:1px solid var(--border); color:var(--muted); font-family:var(--mono); font-size:10px; padding:4px 10px; cursor:pointer; letter-spacing:1px; transition:all .2s; }
+  .btn-reset-key:hover { border-color:var(--accent); color:var(--accent); }
+
+  /* PLATFORM TABS */
+  .platform-tabs { display:flex; border-bottom:1px solid var(--border); background:var(--surface); }
+  .ptab { flex:1; padding:14px 20px; text-align:center; font-family:var(--mono); font-size:12px; letter-spacing:2px; text-transform:uppercase; cursor:pointer; border:none; background:none; color:var(--muted); border-bottom:3px solid transparent; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:8px; }
+  .ptab:hover { color:var(--text); }
+  .ptab.active { color:var(--text); border-bottom-color:var(--accent); }
+  .ptab.active.ml-tab { border-bottom-color:var(--accent-ml); color:var(--accent-ml); }
+  .ptab-icon { font-size:16px; }
+
+  /* SEARCH */
+  .search-section { background:var(--surface2); border-bottom:1px solid var(--border); padding:20px 24px; }
+  .search-row { display:flex; gap:10px; max-width:900px; margin:0 auto; }
+  .search-input { flex:1; background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:var(--sans); font-size:15px; font-weight:600; padding:14px 20px; outline:none; transition:border-color .2s; }
+  .search-input:focus { border-color:var(--accent); }
+  .search-input.ml-focus:focus { border-color:var(--accent-ml); }
+  .search-input::placeholder { color:var(--muted); font-weight:400; }
+  .search-btn { background:var(--accent); color:#000; border:none; font-family:var(--sans); font-weight:800; font-size:13px; letter-spacing:2px; padding:14px 28px; cursor:pointer; transition:all .2s; white-space:nowrap; }
+  .search-btn.ml-btn { background:var(--accent-ml); }
+  .search-btn:hover { opacity:.85; }
+  .search-btn:disabled { opacity:.5; cursor:not-allowed; }
+  .filters-row { display:flex; gap:10px; max-width:900px; margin:12px auto 0; flex-wrap:wrap; align-items:center; }
+  .filter-select { background:var(--bg); border:1px solid var(--border); color:var(--text); font-family:var(--mono); font-size:11px; padding:8px 12px; outline:none; cursor:pointer; letter-spacing:1px; }
+  .filter-select:focus { border-color:var(--accent); }
+  .filter-label { font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; display:flex; align-items:center; gap:6px; }
+
+  /* FILTERS VISIBILITY */
+  #filters-amazon { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  #filters-ml { display:none; gap:10px; flex-wrap:wrap; align-items:center; }
+
+  /* STATS */
+  .stats-bar { display:flex; gap:0; border-bottom:1px solid var(--border); background:var(--surface); padding:0 24px; overflow-x:auto; }
+  .stat-item { padding:14px 24px; border-right:1px solid var(--border); min-width:140px; }
+  .stat-label { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-bottom:4px; }
+  .stat-value { font-family:var(--mono); font-size:18px; font-weight:700; color:var(--accent); }
+  .stat-value.ml-color { color:var(--accent-ml); }
+
+  /* MAIN */
+  main { padding:24px; max-width:1200px; margin:0 auto; }
+
+  /* LOADING */
+  .loading-state { display:none; flex-direction:column; align-items:center; justify-content:center; padding:80px 24px; gap:20px; }
+  .loading-state.visible { display:flex; }
+  .loader { width:40px; height:40px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; }
+  .loader.ml { border-top-color:var(--accent-ml); }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .loading-text { font-family:var(--mono); font-size:12px; color:var(--muted); letter-spacing:2px; }
+
+  /* EMPTY */
+  .empty-state { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:100px 24px; text-align:center; }
+  .empty-icon { font-size:48px; margin-bottom:20px; opacity:.3; }
+  .empty-title { font-size:20px; font-weight:800; margin-bottom:8px; color:var(--muted); }
+  .empty-sub { font-family:var(--mono); font-size:12px; color:var(--border); letter-spacing:1px; }
+
+  /* PRODUCTS */
+  .products-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+  .products-title { font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; }
+  .export-btn { background:none; border:1px solid var(--accent); color:var(--accent); font-family:var(--mono); font-size:10px; letter-spacing:2px; padding:8px 16px; cursor:pointer; transition:all .2s; text-transform:uppercase; }
+  .export-btn:hover { background:var(--accent); color:#000; }
+  .export-btn:disabled { opacity:.3; cursor:not-allowed; }
+  .products-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:16px; }
+
+  /* CARD */
+  .product-card { background:var(--surface); border:1px solid var(--border); overflow:hidden; transition:border-color .2s, transform .2s; animation:fadeUp .4s ease both; position:relative; }
+  .product-card:hover { border-color:var(--accent); transform:translateY(-2px); }
+  .product-card.ml-card:hover { border-color:var(--accent-ml); }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+  .card-badges { position:absolute; top:10px; left:10px; display:flex; gap:4px; z-index:2; flex-wrap:wrap; }
+  .badge { font-family:var(--mono); font-size:9px; font-weight:700; letter-spacing:1px; padding:3px 8px; text-transform:uppercase; }
+  .badge-bestseller { background:var(--accent); color:#000; }
+  .badge-choice { background:#3b82f6; color:#fff; }
+  .badge-prime { background:#1a1a2e; border:1px solid #3b82f6; color:#93c5fd; }
+  .badge-hot { background:var(--accent2); color:#fff; animation:blink 1.5s infinite; }
+  .badge-free-ship { background:var(--accent3); color:#000; }
+  .badge-new { background:#7c3aed; color:#fff; }
+  .badge-used { background:#374151; color:#9ca3af; }
+  @keyframes blink { 50%{opacity:.7} }
+  .card-source { position:absolute; top:10px; right:10px; font-family:var(--mono); font-size:9px; padding:3px 8px; letter-spacing:1px; z-index:2; }
+  .source-amazon { background:#232f3e; color:#f59e0b; border:1px solid #f59e0b33; }
+  .source-ml { background:#1a1a00; color:#ffe600; border:1px solid #ffe60033; }
+  .card-img { width:100%; height:200px; object-fit:contain; background:#fff; padding:12px; display:block; }
+  .card-img-placeholder { width:100%; height:200px; background:var(--surface2); display:flex; align-items:center; justify-content:center; font-size:32px; color:var(--border); }
+  .card-body { padding:16px; border-top:1px solid var(--border); }
+  .card-title { font-size:13px; font-weight:600; line-height:1.4; margin-bottom:12px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .card-metrics { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:14px; }
+  .metric { background:var(--surface2); padding:8px 10px; border-left:2px solid var(--border); }
+  .metric.highlight { border-left-color:var(--accent); }
+  .metric.highlight-ml { border-left-color:var(--accent-ml); }
+  .metric.green { border-left-color:var(--accent3); }
+  .metric.red { border-left-color:var(--accent2); }
+  .metric-label { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:3px; }
+  .metric-value { font-family:var(--mono); font-size:14px; font-weight:700; }
+  .metric-value.price-val { color:var(--accent); }
+  .metric-value.price-ml { color:var(--accent-ml); }
+  .metric-value.good { color:var(--accent3); }
+  .metric-value.warn { color:var(--accent); }
+  .metric-value.bad { color:var(--accent2); }
+  .stars { display:inline-flex; gap:1px; font-size:11px; }
+  .star-filled { color:var(--accent); }
+  .star-empty { color:var(--border); }
+  .resale-score { display:flex; align-items:center; justify-content:space-between; background:var(--bg); border:1px solid var(--border); padding:10px 12px; margin-top:12px; }
+  .score-label { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:2px; text-transform:uppercase; }
+  .score-bar-wrap { flex:1; margin:0 12px; height:4px; background:var(--border); position:relative; overflow:hidden; }
+  .score-bar-fill { height:100%; background:var(--accent3); transition:width .6s ease; }
+  .score-bar-fill.medium { background:var(--accent); }
+  .score-bar-fill.low { background:var(--accent2); }
+  .score-num { font-family:var(--mono); font-size:13px; font-weight:700; min-width:28px; text-align:right; }
+  .score-num.high { color:var(--accent3); }
+  .score-num.medium { color:var(--accent); }
+  .score-num.low { color:var(--accent2); }
+  .card-link { display:block; text-align:center; background:none; border:1px solid var(--border); color:var(--muted); font-family:var(--mono); font-size:10px; letter-spacing:2px; padding:9px; text-decoration:none; margin-top:12px; transition:all .2s; text-transform:uppercase; }
+  .card-link:hover { border-color:var(--accent); color:var(--accent); }
+  .card-link.ml-link:hover { border-color:var(--accent-ml); color:var(--accent-ml); }
+  .resale-boxes { display:flex; gap:6px; margin-top:10px; }
+  .resale-box { flex:1; background:var(--surface2); padding:8px; text-align:center; }
+  .resale-box-label { font-family:var(--mono); font-size:9px; color:var(--muted); letter-spacing:1px; margin-bottom:3px; }
+  .resale-box-val { font-family:var(--mono); font-size:13px; font-weight:700; }
+
+  /* ERROR */
+  .error-banner { display:none; background:rgba(239,68,68,.1); border:1px solid var(--accent2); color:var(--accent2); font-family:var(--mono); font-size:12px; padding:14px 20px; margin-bottom:20px; letter-spacing:1px; align-items:center; gap:10px; }
+  .error-banner.visible { display:flex; }
+
+  ::-webkit-scrollbar { width:6px; height:6px; }
+  ::-webkit-scrollbar-track { background:var(--bg); }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+  @media(max-width:600px){
+    .search-row{flex-direction:column}
+    .products-grid{grid-template-columns:1fr}
+    main{padding:16px}
+    .setup-card{padding:32px 24px}
+    .stat-item{padding:12px 16px;min-width:110px}
+  }
+</style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div id="setup-screen">
+  <div class="setup-card">
+    <div class="logo">◈ ResellerScan v2.0</div>
+    <h1>Analiza productos<br>para revender</h1>
+    <div class="setup-note">✓ Mercado Libre — NO necesita key (gratis)<br>✓ Amazon — Necesita API key de RapidAPI</div>
+    <p>Para buscar en Amazon ingresa tu key de <a href="https://rapidapi.com/letscrape-6bRBa3QguO5/api/real-time-amazon-data" target="_blank">RapidAPI → Real-Time Amazon Data</a>. Para solo usar Mercado Libre puedes dejar el campo vacío.</p>
+    <label class="field-label" for="api-key-input">API Key de RapidAPI (para Amazon)</label>
+    <input type="password" id="api-key-input" class="field-input" placeholder="Opcional — solo para Amazon" autocomplete="off"/>
+    <button class="btn-primary" onclick="saveKey()">ENTRAR →</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden">
+
+  <header>
+    <div class="header-logo">◈ RESELLERSCAN</div>
+    <div class="header-api">
+      <div class="api-dot"></div>
+      <span id="key-preview">ML + Amazon</span>
+      <button class="btn-reset-key" onclick="resetKey()">CAMBIAR KEY</button>
+    </div>
+  </header>
+
+  <!-- TABS -->
+  <div class="platform-tabs">
+    <button class="ptab active" id="tab-amazon" onclick="switchTab('amazon')">
+      <span class="ptab-icon">📦</span> AMAZON
+    </button>
+    <button class="ptab ml-tab" id="tab-ml" onclick="switchTab('ml')">
+      <span class="ptab-icon">🛒</span> MERCADO LIBRE
+    </button>
+  </div>
+
+  <!-- SEARCH -->
+  <div class="search-section">
+    <div class="search-row">
+      <input type="text" id="search-input" class="search-input" placeholder="Busca un producto..." onkeydown="if(event.key==='Enter') doSearch()"/>
+      <button class="search-btn" id="search-btn" onclick="doSearch()">BUSCAR</button>
+    </div>
+    <div class="filters-row">
+      <span class="filter-label">FILTROS:</span>
+      <!-- Amazon filters -->
+      <span id="filters-amazon" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <select class="filter-select" id="sort-amazon">
+          <option value="RELEVANCE">Relevancia</option>
+          <option value="LOWEST_PRICE">Precio ↑</option>
+          <option value="HIGHEST_PRICE">Precio ↓</option>
+          <option value="REVIEWS">Más reseñas</option>
+        </select>
+        <select class="filter-select" id="country-select">
+          <option value="MX">🇲🇽 Amazon México</option>
+          <option value="US">🇺🇸 Amazon USA</option>
+        </select>
+        <select class="filter-select" id="min-rating">
+          <option value="0">Cualquier rating</option>
+          <option value="3">★ 3+</option>
+          <option value="4">★ 4+</option>
+          <option value="4.5">★ 4.5+</option>
+        </select>
+        <select class="filter-select" id="max-price-amazon">
+          <option value="">Cualquier precio</option>
+          <option value="200">Hasta $200</option>
+          <option value="500">Hasta $500</option>
+          <option value="1000">Hasta $1,000</option>
+          <option value="2000">Hasta $2,000</option>
+        </select>
+      </span>
+      <!-- ML filters -->
+      <span id="filters-ml" style="display:none;gap:10px;flex-wrap:wrap;align-items:center">
+        <select class="filter-select" id="sort-ml">
+          <option value="relevance">Relevancia</option>
+          <option value="price_asc">Precio ↑</option>
+          <option value="price_desc">Precio ↓</option>
+          <option value="sold_quantity_desc">Más vendidos</option>
+        </select>
+        <select class="filter-select" id="condition-ml">
+          <option value="">Cualquier condición</option>
+          <option value="new">Nuevo</option>
+          <option value="used">Usado</option>
+        </select>
+        <select class="filter-select" id="max-price-ml">
+          <option value="">Cualquier precio</option>
+          <option value="200">Hasta $200</option>
+          <option value="500">Hasta $500</option>
+          <option value="1000">Hasta $1,000</option>
+          <option value="2000">Hasta $2,000</option>
+        </select>
+      </span>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-bar" id="stats-bar" style="display:none">
+    <div class="stat-item"><div class="stat-label">Resultados</div><div class="stat-value" id="stat-total">—</div></div>
+    <div class="stat-item"><div class="stat-label">Precio promedio</div><div class="stat-value" id="stat-avg-price">—</div></div>
+    <div class="stat-item"><div class="stat-label">Precio mínimo</div><div class="stat-value" id="stat-min-price">—</div></div>
+    <div class="stat-item"><div class="stat-label">Precio máximo</div><div class="stat-value" id="stat-max-price">—</div></div>
+    <div class="stat-item"><div class="stat-label">Envío gratis</div><div class="stat-value" id="stat-free-ship">—</div></div>
+  </div>
+
+  <main>
+    <div class="error-banner" id="error-banner"><span>⚠</span><span id="error-text"></span></div>
+    <div class="loading-state" id="loading-state">
+      <div class="loader" id="loader-spinner"></div>
+      <div class="loading-text" id="loading-text">BUSCANDO...</div>
+    </div>
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon">◈</div>
+      <div class="empty-title">Listo para buscar</div>
+      <div class="empty-sub">Elige una plataforma y escribe un producto</div>
+    </div>
+    <div id="products-section" style="display:none">
+      <div class="products-header">
+        <span class="products-title" id="results-label">0 PRODUCTOS</span>
+        <button class="export-btn" id="export-btn" onclick="exportCSV()" disabled>⬇ EXPORTAR CSV</button>
+      </div>
+      <div class="products-grid" id="products-grid"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ── STATE ──
+let apiKey = '';
+let currentPlatform = 'amazon';
+let currentProducts = [];
+
+// ── INIT ──
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('rs_api_key');
+  if (saved !== null) { apiKey = saved; showApp(); }
+  document.getElementById('api-key-input').addEventListener('keydown', e => { if(e.key==='Enter') saveKey(); });
+});
+
+function saveKey() {
+  const val = document.getElementById('api-key-input').value.trim();
+  apiKey = val;
+  localStorage.setItem('rs_api_key', val);
+  showApp();
+}
+
+function showApp() {
+  document.getElementById('setup-screen').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  const preview = apiKey.length > 8
+    ? apiKey.substring(0,6) + '••••' + apiKey.slice(-4)
+    : (apiKey ? 'key OK' : 'solo ML');
+  document.getElementById('key-preview').textContent = preview;
+}
+
+function resetKey() {
+  if (!confirm('¿Cambiar configuración?')) return;
+  localStorage.removeItem('rs_api_key');
+  apiKey = '';
+  document.getElementById('setup-screen').classList.remove('hidden');
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('api-key-input').value = '';
+}
+
+// ── TAB SWITCH ──
+function switchTab(platform) {
+  currentPlatform = platform;
+  document.getElementById('tab-amazon').classList.toggle('active', platform === 'amazon');
+  document.getElementById('tab-ml').classList.toggle('active', platform === 'ml');
+  document.getElementById('filters-amazon').style.display = platform === 'amazon' ? 'flex' : 'none';
+  document.getElementById('filters-ml').style.display = platform === 'ml' ? 'flex' : 'none';
+  const btn = document.getElementById('search-btn');
+  const input = document.getElementById('search-input');
+  if (platform === 'ml') {
+    btn.classList.add('ml-btn');
+    input.classList.add('ml-focus');
+    input.placeholder = 'Busca en Mercado Libre... ej: lentes polarizados';
+    document.getElementById('loader-spinner').classList.add('ml');
+    document.getElementById('loading-text').textContent = 'BUSCANDO EN MERCADO LIBRE...';
+  } else {
+    btn.classList.remove('ml-btn');
+    input.classList.remove('ml-focus');
+    input.placeholder = 'Busca en Amazon... ej: lentes de sol polarizados';
+    document.getElementById('loader-spinner').classList.remove('ml');
+    document.getElementById('loading-text').textContent = 'ESCANEANDO AMAZON...';
+  }
+  // Reset results
+  document.getElementById('products-section').style.display = 'none';
+  document.getElementById('stats-bar').style.display = 'none';
+  document.getElementById('empty-state').style.display = 'flex';
+  document.getElementById('empty-state').querySelector('.empty-title').textContent = 'Listo para buscar';
+  document.getElementById('empty-state').querySelector('.empty-sub').textContent =
+    platform === 'ml' ? 'Gratis — No necesita API key' : 'Requiere API key de RapidAPI';
+  hideError();
+  currentProducts = [];
+}
+
+// ── SEARCH ROUTER ──
+function doSearch() {
+  if (currentPlatform === 'ml') searchML();
+  else searchAmazon();
+}
+
+// ── AMAZON SEARCH ──
+async function searchAmazon() {
+  if (!apiKey) { showError('Necesitas una API key de RapidAPI para buscar en Amazon. Toca "CAMBIAR KEY".'); return; }
+  const query = document.getElementById('search-input').value.trim();
+  if (!query) return;
+
+  const sortBy  = document.getElementById('sort-amazon').value;
+  const country = document.getElementById('country-select').value;
+  const minRating = parseFloat(document.getElementById('min-rating').value) || 0;
+  const maxPrice  = parseFloat(document.getElementById('max-price-amazon').value) || Infinity;
+
+  setLoading(true); hideError();
+  try {
+    const url = `https://real-time-amazon-data.p.rapidapi.com/search?query=${encodeURIComponent(query)}&page=1&country=${country}&sort_by=${sortBy}&product_condition=ALL`;
+    const res = await fetch(url, {
+      headers: { 'x-rapidapi-key': apiKey, 'x-rapidapi-host': 'real-time-amazon-data.p.rapidapi.com' }
+    });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.message || `HTTP ${res.status}`); }
+    const data = await res.json();
+    let products = (data?.data?.products || []).filter(p => {
+      const price = parseFloat((p.product_price||'').replace(/[^0-9.]/g,'')) || 0;
+      const rating = parseFloat(p.product_star_rating) || 0;
+      if (minRating > 0 && rating < minRating) return false;
+      if (maxPrice < Infinity && price > 0 && price > maxPrice) return false;
+      return true;
+    });
+    currentProducts = products.map(p => ({...p, _source: 'amazon'}));
+    renderProducts(currentProducts, query);
+    renderStats(currentProducts, 'amazon');
+  } catch(err) {
+    showError('Error Amazon: ' + err.message);
+  } finally { setLoading(false); }
+}
+
+// ── MERCADO LIBRE SEARCH ──
+async function searchML() {
+  const query = document.getElementById('search-input').value.trim();
+  if (!query) return;
+
+  const sort      = document.getElementById('sort-ml').value;
+  const condition = document.getElementById('condition-ml').value;
+  const maxPrice  = parseFloat(document.getElementById('max-price-ml').value) || 0;
+
+  setLoading(true); hideError();
+  try {
+    let url = `https://api.mercadolibre.com/sites/MLM/search?q=${encodeURIComponent(query)}&limit=48&sort=${sort}`;
+    if (condition) url += `&condition=${condition}`;
+    if (maxPrice > 0) url += `&price=*-${maxPrice}`;
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const products = (data.results || []).map(p => ({...p, _source: 'ml'}));
+    currentProducts = products;
+    renderProducts(products, query);
+    renderStats(products, 'ml');
+  } catch(err) {
+    showError('Error Mercado Libre: ' + err.message + '. Verifica tu conexión.');
+  } finally { setLoading(false); }
+}
+
+// ── RENDER ──
+function renderProducts(products, query) {
+  const grid = document.getElementById('products-grid');
+  const section = document.getElementById('products-section');
+  const empty = document.getElementById('empty-state');
+
+  grid.innerHTML = '';
+  if (!products.length) {
+    section.style.display = 'none';
+    empty.style.display = 'flex';
+    empty.querySelector('.empty-title').textContent = 'Sin resultados';
+    empty.querySelector('.empty-sub').textContent = 'Intenta otra búsqueda o cambia los filtros';
+    return;
+  }
+  empty.style.display = 'none';
+  section.style.display = 'block';
+  document.getElementById('results-label').textContent = `${products.length} PRODUCTOS — "${query.toUpperCase()}"`;
+  document.getElementById('export-btn').disabled = false;
+  products.forEach((p, i) => grid.appendChild(p._source === 'ml' ? createCardML(p, i) : createCardAmazon(p, i)));
+}
+
+// ── AMAZON CARD ──
+function createCardAmazon(p, idx) {
+  const card = document.createElement('div');
+  card.className = 'product-card';
+  card.style.animationDelay = (idx*40)+'ms';
+
+  const price = parseFloat((p.product_price||'').replace(/[^0-9.]/g,'')) || 0;
+  const origPrice = parseFloat((p.product_original_price||'').replace(/[^0-9.]/g,'')) || 0;
+  const rating = parseFloat(p.product_star_rating) || 0;
+  const reviews = parseInt(String(p.product_num_ratings||0).replace(/[^0-9]/g,'')) || 0;
+  const offers = parseInt(String(p.product_num_offers||1).replace(/[^0-9]/g,'')) || 1;
+  const discount = (origPrice > price && price > 0) ? Math.round((1-price/origPrice)*100) : 0;
+  const score = calcScore(price, rating, reviews, p.is_best_seller, offers, discount);
+  const sc = score>=70?'high':score>=45?'medium':'low';
+
+  let badges = '';
+  if (p.is_best_seller) badges += '<span class="badge badge-bestseller">BEST SELLER</span>';
+  if (p.is_amazon_choice) badges += '<span class="badge badge-choice">AMZ CHOICE</span>';
+  if (p.is_prime) badges += '<span class="badge badge-prime">PRIME</span>';
+  if (reviews > 1000) badges += '<span class="badge badge-hot">🔥 ALTA DEMANDA</span>';
+
+  const imgHtml = p.product_photo
+    ? `<img class="card-img" src="${p.product_photo}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="card-img-placeholder" style="display:none">📦</div>`
+    : `<div class="card-img-placeholder">📦</div>`;
+
+  const stars = Array.from({length:5},(_,i)=>`<span class="${i<Math.floor(rating)?'star-filled':'star-empty'}">★</span>`).join('');
+  const compColor = offers<=2?'good':offers<=5?'warn':'bad';
+  const compLabel = offers<=2?'BAJA ✓':offers<=5?'MEDIA':'ALTA ✗';
+  const country = document.getElementById('country-select').value;
+  const domain = country==='MX'?'amazon.com.mx':'amazon.com';
+  const asin = p.asin||'—';
+
+  card.innerHTML = `
+    <div class="card-badges">${badges}</div>
+    <div class="card-source source-amazon">AMAZON</div>
+    ${imgHtml}
+    <div class="card-body">
+      <div class="card-title">${p.product_title||'Sin título'}</div>
+      <div class="card-metrics">
+        <div class="metric highlight">
+          <div class="metric-label">Precio</div>
+          <div class="metric-value price-val">${p.product_price||'—'}</div>
+        </div>
+        <div class="metric ${discount>0?'green':''}">
+          <div class="metric-label">Original</div>
+          <div class="metric-value">${origPrice>0?'$'+origPrice.toFixed(0):'—'} ${discount>0?`<span style="color:var(--accent3);font-size:10px">-${discount}%</span>`:''}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Rating</div>
+          <div class="metric-value"><div class="stars">${stars}</div><span style="font-size:10px;color:var(--muted)">${rating>0?rating.toFixed(1):'—'}</span></div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Reseñas</div>
+          <div class="metric-value">${reviews>0?reviews.toLocaleString('es-MX'):'—'}</div>
+        </div>
+        <div class="metric ${offers<=2?'green':'red'}">
+          <div class="metric-label">Competencia</div>
+          <div class="metric-value ${compColor}">${compLabel}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">ASIN</div>
+          <div class="metric-value" style="font-size:10px">${asin}</div>
+        </div>
+      </div>
+      ${price>0?`<div class="resale-boxes">
+        <div class="resale-box"><div class="resale-box-label">×1.5 REVENTA</div><div class="resale-box-val" style="color:var(--accent3)">$${(price*1.5).toFixed(0)}</div></div>
+        <div class="resale-box"><div class="resale-box-label">×2 REVENTA</div><div class="resale-box-val" style="color:var(--accent)">$${(price*2).toFixed(0)}</div></div>
+      </div>`:''}
+      ${p.sales_volume?`<div style="font-family:var(--mono);font-size:10px;color:var(--accent3);margin-top:10px;padding:6px 10px;background:rgba(16,185,129,.08);border-left:2px solid var(--accent3)">📈 ${p.sales_volume}</div>`:''}
+      <div class="resale-score">
+        <span class="score-label">SCORE</span>
+        <div class="score-bar-wrap"><div class="score-bar-fill ${sc==='high'?'':sc}" style="width:${score}%"></div></div>
+        <span class="score-num ${sc}">${score}</span>
+      </div>
+      <a class="card-link" href="https://${domain}/dp/${asin}" target="_blank">VER EN AMAZON →</a>
+    </div>`;
+  return card;
+}
+
+// ── MERCADO LIBRE CARD ──
+function createCardML(p, idx) {
+  const card = document.createElement('div');
+  card.className = 'product-card ml-card';
+  card.style.animationDelay = (idx*40)+'ms';
+
+  const price = parseFloat(p.price) || 0;
+  const origPrice = parseFloat(p.original_price) || 0;
+  const discount = (origPrice > price && price > 0) ? Math.round((1-price/origPrice)*100) : 0;
+  const sold = parseInt(p.sold_quantity) || 0;
+  const freeShip = p.shipping?.free_shipping;
+  const condition = p.condition;
+
+  // ML doesn't always return reviews in search, estimate from sold
+  const score = calcScoreML(price, sold, freeShip, discount, p.listing_type_id);
+  const sc = score>=70?'high':score>=45?'medium':'low';
+
+  let badges = '';
+  if (freeShip) badges += '<span class="badge badge-free-ship">ENVÍO GRATIS</span>';
+  if (sold > 100) badges += '<span class="badge badge-hot">🔥 ALTA DEMANDA</span>';
+  if (condition === 'new') badges += '<span class="badge badge-new">NUEVO</span>';
+  if (condition === 'used') badges += '<span class="badge badge-used">USADO</span>';
+
+  const img = p.thumbnail ? p.thumbnail.replace('http://','https://').replace('-I.jpg','-O.jpg') : null;
+  const imgHtml = img
+    ? `<img class="card-img" src="${img}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="card-img-placeholder" style="display:none">📦</div>`
+    : `<div class="card-img-placeholder">📦</div>`;
+
+  const fmt = n => n > 0 ? '$' + n.toLocaleString('es-MX', {minimumFractionDigits:0, maximumFractionDigits:0}) : '—';
+
+  card.innerHTML = `
+    <div class="card-badges">${badges}</div>
+    <div class="card-source source-ml">ML MX</div>
+    ${imgHtml}
+    <div class="card-body">
+      <div class="card-title">${p.title||'Sin título'}</div>
+      <div class="card-metrics">
+        <div class="metric highlight-ml">
+          <div class="metric-label">Precio</div>
+          <div class="metric-value price-ml">${fmt(price)}</div>
+        </div>
+        <div class="metric ${discount>0?'green':''}">
+          <div class="metric-label">Original</div>
+          <div class="metric-value">${origPrice>0?fmt(origPrice):'—'} ${discount>0?`<span style="color:var(--accent3);font-size:10px">-${discount}%</span>`:''}</div>
+        </div>
+        <div class="metric ${sold>50?'green':sold>0?'':''}">
+          <div class="metric-label">Vendidos</div>
+          <div class="metric-value ${sold>50?'good':''}">${sold>0?sold.toLocaleString('es-MX'):'—'}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Envío</div>
+          <div class="metric-value ${freeShip?'good':'bad'}">${freeShip?'GRATIS ✓':'Con costo'}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Condición</div>
+          <div class="metric-value" style="font-size:11px">${condition==='new'?'NUEVO':condition==='used'?'USADO':'—'}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">ID</div>
+          <div class="metric-value" style="font-size:10px">${p.id||'—'}</div>
+        </div>
+      </div>
+      ${price>0?`<div class="resale-boxes">
+        <div class="resale-box"><div class="resale-box-label">×1.5 REVENTA</div><div class="resale-box-val" style="color:var(--accent3)">$${(price*1.5).toFixed(0)}</div></div>
+        <div class="resale-box"><div class="resale-box-label">×2 REVENTA</div><div class="resale-box-val" style="color:var(--accent-ml)">$${(price*2).toFixed(0)}</div></div>
+      </div>`:''}
+      <div class="resale-score">
+        <span class="score-label">SCORE</span>
+        <div class="score-bar-wrap"><div class="score-bar-fill ${sc==='high'?'':sc}" style="width:${score}%"></div></div>
+        <span class="score-num ${sc}">${score}</span>
+      </div>
+      <a class="card-link ml-link" href="${p.permalink}" target="_blank">VER EN MERCADO LIBRE →</a>
+    </div>`;
+  return card;
+}
+
+// ── SCORES ──
+function calcScore(price, rating, reviews, isBestSeller, offers, discount) {
+  let s = 0;
+  if (rating>=4.5) s+=30; else if(rating>=4) s+=22; else if(rating>=3.5) s+=14; else if(rating>0) s+=7;
+  if (reviews>=1000) s+=25; else if(reviews>=500) s+=18; else if(reviews>=100) s+=12; else if(reviews>=10) s+=5;
+  if (price>=100&&price<=800) s+=20; else if(price>=50&&price<100) s+=14; else if(price>800&&price<=1500) s+=10; else if(price>0) s+=5;
+  if (offers===1) s+=15; else if(offers===2) s+=11; else if(offers<=4) s+=6;
+  if (isBestSeller) s+=6;
+  if (discount>10) s+=4;
+  return Math.min(s, 100);
+}
+
+function calcScoreML(price, sold, freeShip, discount, listingType) {
+  let s = 0;
+  if (sold>=500) s+=35; else if(sold>=100) s+=25; else if(sold>=50) s+=15; else if(sold>=10) s+=8; else if(sold>0) s+=3;
+  if (price>=100&&price<=800) s+=25; else if(price>=50&&price<100) s+=18; else if(price>800&&price<=1500) s+=12; else if(price>0) s+=5;
+  if (freeShip) s+=20;
+  if (discount>10) s+=10; else if(discount>0) s+=5;
+  if (listingType==='gold_pro'||listingType==='gold_special') s+=10;
+  return Math.min(s, 100);
+}
+
+// ── STATS ──
+function renderStats(products, platform) {
+  const bar = document.getElementById('stats-bar');
+  bar.style.display = products.length ? 'flex' : 'none';
+  if (!products.length) return;
+
+  const prices = products.map(p => {
+    if (platform==='ml') return parseFloat(p.price)||0;
+    return parseFloat((p.product_price||'').replace(/[^0-9.]/g,''))||0;
+  }).filter(Boolean);
+
+  const avg = prices.length ? Math.round(prices.reduce((a,b)=>a+b,0)/prices.length) : 0;
+  const min = prices.length ? Math.min(...prices) : 0;
+  const max = prices.length ? Math.max(...prices) : 0;
+  const freeShipCount = products.filter(p =>
+    platform==='ml' ? p.shipping?.free_shipping : p.is_prime
+  ).length;
+
+  const fmt = n => n > 0 ? '$' + n.toLocaleString('es-MX') : '—';
+  const isML = platform==='ml';
+
+  document.getElementById('stat-total').textContent = products.length;
+  document.getElementById('stat-total').className = 'stat-value' + (isML?' ml-color':'');
+  document.getElementById('stat-avg-price').textContent = fmt(avg);
+  document.getElementById('stat-avg-price').className = 'stat-value' + (isML?' ml-color':'');
+  document.getElementById('stat-min-price').textContent = fmt(min);
+  document.getElementById('stat-max-price').textContent = fmt(max);
+  document.getElementById('stats-bar').querySelector('.stat-item:last-child .stat-label').textContent =
+    isML ? 'Envío gratis' : 'Con Prime';
+  document.getElementById('stat-free-ship').textContent = freeShipCount;
+}
+
+// ── EXPORT CSV ──
+function exportCSV() {
+  if (!currentProducts.length) return;
+  const isML = currentProducts[0]._source === 'ml';
+  let headers, rows;
+
+  if (isML) {
+    headers = ['Título','Precio','Precio Original','Descuento%','Vendidos','Envío Gratis','Condición','ID','URL','Score Reventa'];
+    rows = currentProducts.map(p => {
+      const price = parseFloat(p.price)||0;
+      const orig = parseFloat(p.original_price)||0;
+      const disc = (orig>price&&price>0)?Math.round((1-price/orig)*100):0;
+      const sold = parseInt(p.sold_quantity)||0;
+      const score = calcScoreML(price, sold, p.shipping?.free_shipping, disc, p.listing_type_id);
+      return [
+        `"${(p.title||'').replace(/"/g,'""')}"`, price||'', orig||'', disc||'',
+        sold||'', p.shipping?.free_shipping?'SÍ':'NO',
+        p.condition==='new'?'Nuevo':p.condition==='used'?'Usado':'—',
+        p.id||'', p.permalink||'', score
+      ].join(',');
+    });
+  } else {
+    headers = ['Título','Precio','Precio Original','Rating','Reseñas','Best Seller','Prime','ASIN','URL','Score'];
+    rows = currentProducts.map(p => {
+      const price = parseFloat((p.product_price||'').replace(/[^0-9.]/g,''))||0;
+      const orig = parseFloat((p.product_original_price||'').replace(/[^0-9.]/g,''))||0;
+      const rating = parseFloat(p.product_star_rating)||0;
+      const reviews = parseInt(String(p.product_num_ratings||0).replace(/[^0-9]/g,''))||0;
+      const offers = parseInt(String(p.product_num_offers||1).replace(/[^0-9]/g,''))||1;
+      const disc = (orig>price&&price>0)?Math.round((1-price/orig)*100):0;
+      const score = calcScore(price, rating, reviews, p.is_best_seller, offers, disc);
+      const country = document.getElementById('country-select').value;
+      const domain = country==='MX'?'amazon.com.mx':'amazon.com';
+      return [
+        `"${(p.product_title||'').replace(/"/g,'""')}"`, price||'', orig||'',
+        rating||'', reviews||'', p.is_best_seller?'SÍ':'NO', p.is_prime?'SÍ':'NO',
+        p.asin||'', p.asin?`https://${domain}/dp/${p.asin}`:'', score
+      ].join(',');
+    });
+  }
+
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const q = document.getElementById('search-input').value.trim().replace(/\s+/g,'_').substring(0,25);
+  a.download = `${isML?'ml':'amazon'}_${q}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── UI HELPERS ──
+function setLoading(on) {
+  document.getElementById('loading-state').classList.toggle('visible', on);
+  document.getElementById('search-btn').disabled = on;
+  document.getElementById('search-btn').textContent = on ? '...' : 'BUSCAR';
+  if (on) {
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('products-section').style.display = 'none';
+  }
+}
+function showError(msg) {
+  document.getElementById('error-text').textContent = msg;
+  document.getElementById('error-banner').classList.add('visible');
+}
+function hideError() { document.getElementById('error-banner').classList.remove('visible'); }
+</script>
+</body>
+</html>
