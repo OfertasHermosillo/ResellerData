@@ -75,7 +75,7 @@
 
   /* FILTERS VISIBILITY */
   #filters-amazon { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-  #filters-ml { display:none; gap:10px; flex-wrap:wrap; align-items:center; }
+  #filters-ali { display:none; gap:10px; flex-wrap:wrap; align-items:center; }
 
   /* STATS */
   .stats-bar { display:flex; gap:0; border-bottom:1px solid var(--border); background:var(--surface); padding:0 24px; overflow-x:auto; }
@@ -360,7 +360,7 @@ function switchTab(platform) {
   document.getElementById('tab-amazon').classList.toggle('active', platform === 'amazon');
   document.getElementById('tab-ali').classList.toggle('active', platform === 'ali');
   document.getElementById('filters-amazon').style.display = platform === 'amazon' ? 'flex' : 'none';
-  document.getElementById('filters-ml').style.display = platform === 'ali' ? 'flex' : 'none';
+  document.getElementById('filters-ali').style.display = platform === 'ali' ? 'flex' : 'none';
   const btn = document.getElementById('search-btn');
   const input = document.getElementById('search-input');
   if (platform === 'ali') {
@@ -447,7 +447,7 @@ async function searchAli() {
 
   setLoading(true); hideError();
   try {
-    let url = `https://aliexpress-datahub.p.rapidapi.com/item_search?q=${encodeURIComponent(query)}&page=1&sort=${sort}`;
+    let url = `https://aliexpress-datahub.p.rapidapi.com/item_search_2?q=${encodeURIComponent(query)}&page=1&sort=${sort}`;
     if (maxPrice > 0) url += `&max_price=${maxPrice}`;
 
     const res = await fetch(url, {
@@ -460,21 +460,20 @@ async function searchAli() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
-    let items = data?.result?.resultList || data?.result?.items || data?.resultList || [];
-    if (!Array.isArray(items)) items = [];
+    const items = data?.result?.resultList || [];
 
     const products = items.map(p => ({
       ...p,
       _source: 'ali',
       // Normalize fields from AliExpress response
-      _title: p.item?.title || p.title || '',
-      _price: parseFloat(p.item?.sku?.def?.promotionPrice || p.item?.sku?.def?.price || p.price || 0),
-      _origPrice: parseFloat(p.item?.sku?.def?.price || 0),
-      _sales: p.item?.tradeDesc || p.tradeDesc || '',
-      _rating: parseFloat(p.item?.evaluation?.starRating || p.starRating || 0),
-      _image: p.item?.image || p.image || '',
-      _url: p.item?.itemUrl ? 'https:' + p.item.itemUrl : (p.itemUrl ? 'https:' + p.itemUrl : '#'),
-      _id: String(p.item?.itemId || p.itemId || '')
+      _title: p.item?.title || '',
+      _price: parseFloat(p.item?.sku?.def?.promotionPrice || 0),
+      _origPrice: 0,
+      _sales: String(p.item?.sales || 0),
+      _rating: parseFloat(p.item?.averageStarRate || 0),
+      _image: p.item?.image ? 'https:' + p.item.image : '',
+      _url: p.item?.itemUrl ? 'https:' + p.item.itemUrl : '#',
+      _id: String(p.item?.itemId || '')
     }));
 
     currentProducts = products;
