@@ -189,10 +189,10 @@
   <div class="setup-card">
     <div class="logo">◈ ResellerScan v2.0</div>
     <h1>Analiza productos<br>para revender</h1>
-    <div class="setup-note">✓ Mercado Libre — NO necesita key (gratis)<br>✓ Amazon — Necesita API key de RapidAPI</div>
-    <p>Para buscar en Amazon ingresa tu key de <a href="https://rapidapi.com/letscrape-6bRBa3QguO5/api/real-time-amazon-data" target="_blank">RapidAPI → Real-Time Amazon Data</a>. Para solo usar Mercado Libre puedes dejar el campo vacío.</p>
-    <label class="field-label" for="api-key-input">API Key de RapidAPI (para Amazon)</label>
-    <input type="password" id="api-key-input" class="field-input" placeholder="Opcional — solo para Amazon" autocomplete="off"/>
+    <div class="setup-note">✓ Amazon — Necesita API key de RapidAPI<br>✓ AliExpress — Necesita API key de RapidAPI</div>
+    <p>Ingresa tu API key de RapidAPI para usar Amazon y AliExpress. La misma key funciona para ambas plataformas.</p>
+    <label class="field-label" for="api-key-input">API Key de RapidAPI</label>
+    <input type="password" id="api-key-input" class="field-input" placeholder="Tu API key de RapidAPI" autocomplete="off"/>
     <button class="btn-primary" onclick="saveKey()">ENTRAR →</button>
   </div>
 </div>
@@ -215,8 +215,8 @@
     <button class="ptab active" id="tab-amazon" onclick="switchTab('amazon')">
       <span class="ptab-icon">📦</span> AMAZON
     </button>
-    <button class="ptab ml-tab" id="tab-ml" onclick="switchTab('ml')">
-      <span class="ptab-icon">🛒</span> MERCADO LIBRE
+    <button class="ptab ml-tab" id="tab-ali" onclick="switchTab('ali')">
+      <span class="ptab-icon">🛍️</span> ALIEXPRESS
     </button>
   </div>
 
@@ -254,25 +254,20 @@
           <option value="2000">Hasta $2,000</option>
         </select>
       </span>
-      <!-- ML filters -->
-      <span id="filters-ml" style="display:none;gap:10px;flex-wrap:wrap;align-items:center">
-        <select class="filter-select" id="sort-ml">
-          <option value="relevance">Relevancia</option>
+      <!-- AliExpress filters -->
+      <span id="filters-ali" style="display:none;gap:10px;flex-wrap:wrap;align-items:center">
+        <select class="filter-select" id="sort-ali">
+          <option value="default">Relevancia</option>
           <option value="price_asc">Precio ↑</option>
           <option value="price_desc">Precio ↓</option>
-          <option value="sold_quantity_desc">Más vendidos</option>
+          <option value="orders_desc">Más vendidos</option>
         </select>
-        <select class="filter-select" id="condition-ml">
-          <option value="">Cualquier condición</option>
-          <option value="new">Nuevo</option>
-          <option value="used">Usado</option>
-        </select>
-        <select class="filter-select" id="max-price-ml">
+        <select class="filter-select" id="max-price-ali">
           <option value="">Cualquier precio</option>
-          <option value="200">Hasta $200</option>
-          <option value="500">Hasta $500</option>
-          <option value="1000">Hasta $1,000</option>
-          <option value="2000">Hasta $2,000</option>
+          <option value="5">Hasta $5 USD</option>
+          <option value="10">Hasta $10 USD</option>
+          <option value="20">Hasta $20 USD</option>
+          <option value="50">Hasta $50 USD</option>
         </select>
       </span>
     </div>
@@ -363,17 +358,17 @@ function resetKey() {
 function switchTab(platform) {
   currentPlatform = platform;
   document.getElementById('tab-amazon').classList.toggle('active', platform === 'amazon');
-  document.getElementById('tab-ml').classList.toggle('active', platform === 'ml');
+  document.getElementById('tab-ali').classList.toggle('active', platform === 'ali');
   document.getElementById('filters-amazon').style.display = platform === 'amazon' ? 'flex' : 'none';
-  document.getElementById('filters-ml').style.display = platform === 'ml' ? 'flex' : 'none';
+  document.getElementById('filters-ml').style.display = platform === 'ali' ? 'flex' : 'none';
   const btn = document.getElementById('search-btn');
   const input = document.getElementById('search-input');
-  if (platform === 'ml') {
+  if (platform === 'ali') {
     btn.classList.add('ml-btn');
     input.classList.add('ml-focus');
-    input.placeholder = 'Busca en Mercado Libre... ej: lentes polarizados';
+    input.placeholder = 'Busca en AliExpress... ej: polarized sunglasses';
     document.getElementById('loader-spinner').classList.add('ml');
-    document.getElementById('loading-text').textContent = 'BUSCANDO EN MERCADO LIBRE...';
+    document.getElementById('loading-text').textContent = 'BUSCANDO EN ALIEXPRESS...';
   } else {
     btn.classList.remove('ml-btn');
     input.classList.remove('ml-focus');
@@ -387,7 +382,7 @@ function switchTab(platform) {
   document.getElementById('empty-state').style.display = 'flex';
   document.getElementById('empty-state').querySelector('.empty-title').textContent = 'Listo para buscar';
   document.getElementById('empty-state').querySelector('.empty-sub').textContent =
-    platform === 'ml' ? 'Gratis — No necesita API key' : 'Requiere API key de RapidAPI';
+    platform === 'ali' ? 'Precios de mayoreo desde China' : 'Requiere API key de RapidAPI';
   hideError();
   currentProducts = [];
 }
@@ -436,43 +431,52 @@ async function searchAmazon() {
   } finally { setLoading(false); }
 }
 
-// ── MERCADO LIBRE SEARCH ──
-async function searchML() {
+// ── ALIEXPRESS SEARCH ──
+async function searchAli() {
   if (!apiKey) { showError('Necesitas tu API key de RapidAPI. Toca "CAMBIAR KEY".'); return; }
   const query = document.getElementById('search-input').value.trim();
   if (!query) return;
 
-  const sort      = document.getElementById('sort-ml').value;
-  const condition = document.getElementById('condition-ml').value;
-  const maxPrice  = parseFloat(document.getElementById('max-price-ml').value) || 0;
+  const sort     = document.getElementById('sort-ali').value;
+  const maxPrice = parseFloat(document.getElementById('max-price-ali').value) || 0;
 
   setLoading(true); hideError();
   try {
-    let url = `https://mercado-libre7.p.rapidapi.com/listings_for_search?search_str=${encodeURIComponent(query)}&country=mx&sort_by=${sort}&page_num=1`;
-    if (condition) url += `&condition=${condition}`;
+    let url = `https://aliexpress-datahub.p.rapidapi.com/item_search?q=${encodeURIComponent(query)}&page=1&sort=${sort}`;
+    if (maxPrice > 0) url += `&max_price=${maxPrice}`;
 
     const res = await fetch(url, {
       method: 'GET',
       headers: {
         'x-rapidapi-key': apiKey,
-        'x-rapidapi-host': 'mercado-libre7.p.rapidapi.com'
+        'x-rapidapi-host': 'aliexpress-datahub.p.rapidapi.com'
       }
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
 
-    let items = data.results || data.listings || data.data || data || [];
+    let items = data?.result?.resultList || data?.result?.items || data?.resultList || [];
     if (!Array.isArray(items)) items = [];
-    const products = items.map(p => ({...p, _source: 'ml'}));
+
+    const products = items.map(p => ({
+      ...p,
+      _source: 'ali',
+      // Normalize fields from AliExpress response
+      _title: p.item?.title || p.title || '',
+      _price: parseFloat(p.item?.sku?.def?.promotionPrice || p.item?.sku?.def?.price || p.price || 0),
+      _origPrice: parseFloat(p.item?.sku?.def?.price || 0),
+      _sales: p.item?.tradeDesc || p.tradeDesc || '',
+      _rating: parseFloat(p.item?.evaluation?.starRating || p.starRating || 0),
+      _image: p.item?.image || p.image || '',
+      _url: p.item?.itemUrl ? 'https:' + p.item.itemUrl : (p.itemUrl ? 'https:' + p.itemUrl : '#'),
+      _id: String(p.item?.itemId || p.itemId || '')
+    }));
+
     currentProducts = products;
     renderProducts(products, query);
-    renderStats(products, 'ml');
+    renderStats(products, 'ali');
   } catch(err) {
-    if (err.message === 'Failed to fetch') {
-      showError('Error de red ML — Posibles causas: (1) Conexión inestable, (2) La key no está suscrita a Mercado Libre API en RapidAPI.');
-    } else {
-      showError('Error ML: ' + err.message);
-    }
+    showError('Error AliExpress: ' + err.message);
     console.error(err);
   } finally { setLoading(false); }
 }
@@ -495,7 +499,7 @@ function renderProducts(products, query) {
   section.style.display = 'block';
   document.getElementById('results-label').textContent = `${products.length} PRODUCTOS — "${query.toUpperCase()}"`;
   document.getElementById('export-btn').disabled = false;
-  products.forEach((p, i) => grid.appendChild(p._source === 'ml' ? createCardML(p, i) : createCardAmazon(p, i)));
+  products.forEach((p, i) => grid.appendChild(p._source === 'ali' ? createCardAli(p, i) : createCardAmazon(p, i)));
 }
 
 // ── AMAZON CARD ──
@@ -577,78 +581,77 @@ function createCardAmazon(p, idx) {
   return card;
 }
 
-// ── MERCADO LIBRE CARD ──
-function createCardML(p, idx) {
+// ── ALIEXPRESS CARD ──
+function createCardAli(p, idx) {
   const card = document.createElement('div');
   card.className = 'product-card ml-card';
   card.style.animationDelay = (idx*40)+'ms';
 
-  const price = parseFloat(p.price) || 0;
-  const origPrice = parseFloat(p.original_price) || 0;
+  const price = p._price || 0;
+  const origPrice = p._origPrice || 0;
   const discount = (origPrice > price && price > 0) ? Math.round((1-price/origPrice)*100) : 0;
-  const sold = parseInt(p.sold_quantity) || 0;
-  const freeShip = p.shipping?.free_shipping;
-  const condition = p.condition;
+  const sales = p._sales || '';
+  const rating = p._rating || 0;
 
-  // ML doesn't always return reviews in search, estimate from sold
-  const score = calcScoreML(price, sold, freeShip, discount, p.listing_type_id);
+  const score = calcScoreAli(price, sales, rating, discount);
   const sc = score>=70?'high':score>=45?'medium':'low';
 
   let badges = '';
-  if (freeShip) badges += '<span class="badge badge-free-ship">ENVÍO GRATIS</span>';
-  if (sold > 100) badges += '<span class="badge badge-hot">🔥 ALTA DEMANDA</span>';
-  if (condition === 'new') badges += '<span class="badge badge-new">NUEVO</span>';
-  if (condition === 'used') badges += '<span class="badge badge-used">USADO</span>';
+  if (sales.includes('1000') || sales.includes('2000') || sales.includes('5000') || sales.includes('10000')) {
+    badges += '<span class="badge badge-hot">🔥 ALTA DEMANDA</span>';
+  }
+  if (discount >= 30) badges += '<span class="badge badge-free-ship">-'+discount+'% OFF</span>';
 
-  const img = p.thumbnail ? p.thumbnail.replace('http://','https://').replace('-I.jpg','-O.jpg') : null;
-  const imgHtml = img
-    ? `<img class="card-img" src="${img}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="card-img-placeholder" style="display:none">📦</div>`
+  const imgHtml = p._image
+    ? `<img class="card-img" src="${p._image}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="card-img-placeholder" style="display:none">📦</div>`
     : `<div class="card-img-placeholder">📦</div>`;
 
-  const fmt = n => n > 0 ? '$' + n.toLocaleString('es-MX', {minimumFractionDigits:0, maximumFractionDigits:0}) : '—';
+  const stars = Array.from({length:5},(_,i)=>`<span class="${i<Math.floor(rating)?'star-filled':'star-empty'}">★</span>`).join('');
+  const usdMxn = 17.5; // approximate
+  const priceMXN = price > 0 ? Math.round(price * usdMxn) : 0;
 
   card.innerHTML = `
     <div class="card-badges">${badges}</div>
-    <div class="card-source source-ml">ML MX</div>
+    <div class="card-source source-ml" style="background:#1a0a00;color:#ff6600;border-color:#ff660033">ALI</div>
     ${imgHtml}
     <div class="card-body">
-      <div class="card-title">${p.title||'Sin título'}</div>
+      <div class="card-title">${p._title||'Sin título'}</div>
       <div class="card-metrics">
-        <div class="metric highlight-ml">
-          <div class="metric-label">Precio</div>
-          <div class="metric-value price-ml">${fmt(price)}</div>
+        <div class="metric highlight-ml" style="border-left-color:#ff6600">
+          <div class="metric-label">Precio USD</div>
+          <div class="metric-value" style="color:#ff6600">$${price>0?price.toFixed(2):'—'}</div>
+        </div>
+        <div class="metric ${priceMXN>0?'green':''}">
+          <div class="metric-label">≈ Precio MXN</div>
+          <div class="metric-value ${priceMXN>0?'good':''}">${priceMXN>0?'$'+priceMXN.toLocaleString('es-MX'):'—'}</div>
         </div>
         <div class="metric ${discount>0?'green':''}">
-          <div class="metric-label">Original</div>
-          <div class="metric-value">${origPrice>0?fmt(origPrice):'—'} ${discount>0?`<span style="color:var(--accent3);font-size:10px">-${discount}%</span>`:''}</div>
-        </div>
-        <div class="metric ${sold>50?'green':sold>0?'':''}">
-          <div class="metric-label">Vendidos</div>
-          <div class="metric-value ${sold>50?'good':''}">${sold>0?sold.toLocaleString('es-MX'):'—'}</div>
+          <div class="metric-label">Original USD</div>
+          <div class="metric-value">${origPrice>0?'$'+origPrice.toFixed(2):'—'} ${discount>0?`<span style="color:var(--accent3);font-size:10px">-${discount}%</span>`:''}</div>
         </div>
         <div class="metric">
-          <div class="metric-label">Envío</div>
-          <div class="metric-value ${freeShip?'good':'bad'}">${freeShip?'GRATIS ✓':'Con costo'}</div>
+          <div class="metric-label">Rating</div>
+          <div class="metric-value"><div class="stars">${stars}</div><span style="font-size:10px;color:var(--muted)">${rating>0?rating.toFixed(1):'—'}</span></div>
         </div>
-        <div class="metric">
-          <div class="metric-label">Condición</div>
-          <div class="metric-value" style="font-size:11px">${condition==='new'?'NUEVO':condition==='used'?'USADO':'—'}</div>
+        <div class="metric ${sales?'green':''}">
+          <div class="metric-label">Ventas</div>
+          <div class="metric-value good" style="font-size:11px">${sales||'—'}</div>
         </div>
         <div class="metric">
           <div class="metric-label">ID</div>
-          <div class="metric-value" style="font-size:10px">${p.id||'—'}</div>
+          <div class="metric-value" style="font-size:10px">${p._id||'—'}</div>
         </div>
       </div>
-      ${price>0?`<div class="resale-boxes">
-        <div class="resale-box"><div class="resale-box-label">×1.5 REVENTA</div><div class="resale-box-val" style="color:var(--accent3)">$${(price*1.5).toFixed(0)}</div></div>
-        <div class="resale-box"><div class="resale-box-label">×2 REVENTA</div><div class="resale-box-val" style="color:var(--accent-ml)">$${(price*2).toFixed(0)}</div></div>
+      ${priceMXN>0?`<div class="resale-boxes">
+        <div class="resale-box"><div class="resale-box-label">×2 EN MXN</div><div class="resale-box-val" style="color:var(--accent3)">$${(priceMXN*2).toLocaleString('es-MX')}</div></div>
+        <div class="resale-box"><div class="resale-box-label">×3 EN MXN</div><div class="resale-box-val" style="color:#ff6600">$${(priceMXN*3).toLocaleString('es-MX')}</div></div>
       </div>`:''}
       <div class="resale-score">
         <span class="score-label">SCORE</span>
         <div class="score-bar-wrap"><div class="score-bar-fill ${sc==='high'?'':sc}" style="width:${score}%"></div></div>
         <span class="score-num ${sc}">${score}</span>
       </div>
-      <a class="card-link ml-link" href="${p.permalink || p.url || (p.id ? 'https://articulo.mercadolibre.com.mx/' + p.id.replace('MLM','MLM-') : '#')}" target="_blank">VER EN MERCADO LIBRE →</a>
+      <a class="card-link" href="${p._url}" target="_blank" style="border-color:#ff660044;color:#ff6600">VER EN ALIEXPRESS →</a>
     </div>`;
   return card;
 }
@@ -665,13 +668,17 @@ function calcScore(price, rating, reviews, isBestSeller, offers, discount) {
   return Math.min(s, 100);
 }
 
-function calcScoreML(price, sold, freeShip, discount, listingType) {
+function calcScoreAli(priceUSD, salesStr, rating, discount) {
   let s = 0;
-  if (sold>=500) s+=35; else if(sold>=100) s+=25; else if(sold>=50) s+=15; else if(sold>=10) s+=8; else if(sold>0) s+=3;
-  if (price>=100&&price<=800) s+=25; else if(price>=50&&price<100) s+=18; else if(price>800&&price<=1500) s+=12; else if(price>0) s+=5;
-  if (freeShip) s+=20;
-  if (discount>10) s+=10; else if(discount>0) s+=5;
-  if (listingType==='gold_pro'||listingType==='gold_special') s+=10;
+  // Sales signal
+  const salesNum = parseInt((salesStr||'').replace(/[^0-9]/g,'')) || 0;
+  if (salesNum>=10000) s+=35; else if(salesNum>=1000) s+=25; else if(salesNum>=100) s+=15; else if(salesNum>0) s+=8;
+  // Price sweet spot for resale (USD)
+  if (priceUSD>=2&&priceUSD<=15) s+=30; else if(priceUSD>=1&&priceUSD<2) s+=20; else if(priceUSD>15&&priceUSD<=30) s+=15; else if(priceUSD>0) s+=5;
+  // Rating
+  if (rating>=4.5) s+=20; else if(rating>=4) s+=14; else if(rating>=3.5) s+=8; else if(rating>0) s+=3;
+  // Discount
+  if (discount>=30) s+=15; else if(discount>=10) s+=8; else if(discount>0) s+=3;
   return Math.min(s, 100);
 }
 
@@ -703,14 +710,14 @@ function renderStats(products, platform) {
   document.getElementById('stat-min-price').textContent = fmt(min);
   document.getElementById('stat-max-price').textContent = fmt(max);
   document.getElementById('stats-bar').querySelector('.stat-item:last-child .stat-label').textContent =
-    isML ? 'Envío gratis' : 'Con Prime';
+    platform==='ali' ? 'Alta demanda' : 'Con Prime';
   document.getElementById('stat-free-ship').textContent = freeShipCount;
 }
 
 // ── EXPORT CSV ──
 function exportCSV() {
   if (!currentProducts.length) return;
-  const isML = currentProducts[0]._source === 'ml';
+  const isML = currentProducts[0]._source === 'ali';
   let headers, rows;
 
   if (isML) {
