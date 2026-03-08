@@ -385,11 +385,16 @@ function switchTab(platform) {
     platform === 'ali' ? 'Precios de mayoreo desde China' : 'Requiere API key de RapidAPI';
   hideError();
   currentProducts = [];
+  document.getElementById('products-section').style.display = 'none';
+  document.getElementById('stats-bar').style.display = 'none';
+  document.getElementById('empty-state').style.display = 'flex';
+  document.getElementById('products-grid').innerHTML = '';
+  document.getElementById('search-input').value = '';
 }
 
 // ── SEARCH ROUTER ──
 function doSearch() {
-  if (currentPlatform === 'ml') searchML();
+  if (currentPlatform === 'ali') searchAli();
   else searchAmazon();
 }
 
