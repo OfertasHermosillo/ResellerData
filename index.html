@@ -205,6 +205,7 @@
     <div class="header-api">
       <div class="api-dot"></div>
       <span id="key-preview">ML + Amazon</span>
+      <button class="btn-reset-key" onclick="testKey()">TEST KEY</button>
       <button class="btn-reset-key" onclick="resetKey()">CAMBIAR KEY</button>
     </div>
   </header>
@@ -320,6 +321,19 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('api-key-input').addEventListener('keydown', e => { if(e.key==='Enter') saveKey(); });
 });
 
+async function testKey() {
+  if (!apiKey) { alert('No hay key guardada.'); return; }
+  try {
+    const res = await fetch('https://real-time-amazon-data.p.rapidapi.com/search?query=test&page=1&country=MX&sort_by=RELEVANCE&product_condition=ALL', {
+      headers: { 'x-rapidapi-key': apiKey, 'x-rapidapi-host': 'real-time-amazon-data.p.rapidapi.com' }
+    });
+    if (res.ok) { alert('✅ Key válida — API responde OK ('+res.status+')'); }
+    else { const d = await res.json().catch(()=>({})); alert('❌ API responde HTTP '+res.status+': '+(d.message||'Error desconocido')); }
+  } catch(e) {
+    alert('❌ Failed to fetch — Verifica que la key esté suscrita a Real-Time Amazon Data en RapidAPI.');
+  }
+}
+
 function saveKey() {
   const val = document.getElementById('api-key-input').value.trim();
   apiKey = val;
@@ -414,7 +428,11 @@ async function searchAmazon() {
     renderProducts(currentProducts, query);
     renderStats(currentProducts, 'amazon');
   } catch(err) {
-    showError('Error Amazon: ' + err.message);
+    if (err.message === 'Failed to fetch') {
+      showError('Error de red — Posibles causas: (1) Conexión inestable, (2) La key no está suscrita a esta API. Ve a RapidAPI → Real-Time Amazon Data → Subscribe.');
+    } else {
+      showError('Error Amazon: ' + err.message);
+    }
   } finally { setLoading(false); }
 }
 
@@ -430,14 +448,17 @@ async function searchML() {
 
   setLoading(true); hideError();
   try {
-    let url = `https://mercado-libre7.p.rapidapi.com/listings_for_search?query=${encodeURIComponent(query)}&site=MLM&sort=${sort}`;
+    let url = `https://mercado-libre7.p.rapidapi.com/listings_for_search?query=${encodeURIComponent(query)}&site=MLM`;
     if (condition) url += `&condition=${condition}`;
     if (maxPrice > 0) url += `&price_max=${maxPrice}`;
 
     const res = await fetch(url, {
+      method: 'GET',
       headers: {
         'x-rapidapi-key': apiKey,
-        'x-rapidapi-host': 'mercado-libre7.p.rapidapi.com'
+        'x-rapidapi-host': 'mercado-libre7.p.rapidapi.com',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
       }
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -450,7 +471,11 @@ async function searchML() {
     renderProducts(products, query);
     renderStats(products, 'ml');
   } catch(err) {
-    showError('Error Mercado Libre: ' + err.message);
+    if (err.message === 'Failed to fetch') {
+      showError('Error de red ML — Posibles causas: (1) Conexión inestable, (2) La key no está suscrita a Mercado Libre API en RapidAPI.');
+    } else {
+      showError('Error ML: ' + err.message);
+    }
     console.error(err);
   } finally { setLoading(false); }
 }
