@@ -648,7 +648,7 @@ function createCardML(p, idx) {
         <div class="score-bar-wrap"><div class="score-bar-fill ${sc==='high'?'':sc}" style="width:${score}%"></div></div>
         <span class="score-num ${sc}">${score}</span>
       </div>
-      <a class="card-link ml-link" href="${p.permalink}" target="_blank">VER EN MERCADO LIBRE →</a>
+      <a class="card-link ml-link" href="${p.permalink || p.url || (p.id ? 'https://articulo.mercadolibre.com.mx/' + p.id.replace('MLM','MLM-') : '#')}" target="_blank">VER EN MERCADO LIBRE →</a>
     </div>`;
   return card;
 }
@@ -725,7 +725,7 @@ function exportCSV() {
         `"${(p.title||'').replace(/"/g,'""')}"`, price||'', orig||'', disc||'',
         sold||'', p.shipping?.free_shipping?'SÍ':'NO',
         p.condition==='new'?'Nuevo':p.condition==='used'?'Usado':'—',
-        p.id||'', p.permalink||'', score
+        p.id||'', (p.permalink || p.url || (p.id ? 'https://www.mercadolibre.com.mx/p/'+p.id : ''))||'', score
       ].join(',');
     });
   } else {
