@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ResellerScan — Amazon + Mercado Libre</title>
+<title>ResellerScan — Amazon + AliExpress</title>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -54,7 +54,7 @@
   .ptab { flex:1; padding:14px 20px; text-align:center; font-family:var(--mono); font-size:12px; letter-spacing:2px; text-transform:uppercase; cursor:pointer; border:none; background:none; color:var(--muted); border-bottom:3px solid transparent; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:8px; }
   .ptab:hover { color:var(--text); }
   .ptab.active { color:var(--text); border-bottom-color:var(--accent); }
-  .ptab.active.ml-tab { border-bottom-color:var(--accent-ml); color:var(--accent-ml); }
+  .ptab.active.ali-tab { border-bottom-color:var(--accent-ml); color:var(--accent-ml); }
   .ptab-icon { font-size:16px; }
 
   /* SEARCH */
@@ -204,7 +204,7 @@
     <div class="header-logo">◈ RESELLERSCAN</div>
     <div class="header-api">
       <div class="api-dot"></div>
-      <span id="key-preview">ML + Amazon</span>
+      <span id="key-preview">Ali + Amazon</span>
       <button class="btn-reset-key" onclick="testKey()">TEST KEY</button>
       <button class="btn-reset-key" onclick="resetKey()">CAMBIAR KEY</button>
     </div>
@@ -215,7 +215,7 @@
     <button class="ptab active" id="tab-amazon" onclick="switchTab('amazon')">
       <span class="ptab-icon">📦</span> AMAZON
     </button>
-    <button class="ptab ml-tab" id="tab-ali" onclick="switchTab('ali')">
+    <button class="ptab ali-tab" id="tab-ali" onclick="switchTab('ali')">
       <span class="ptab-icon">🛍️</span> ALIEXPRESS
     </button>
   </div>
@@ -341,7 +341,7 @@ function showApp() {
   document.getElementById('app').classList.remove('hidden');
   const preview = apiKey.length > 8
     ? apiKey.substring(0,6) + '••••' + apiKey.slice(-4)
-    : (apiKey ? 'key OK' : 'solo ML');
+    : (apiKey ? 'key OK' : 'solo Ali');
   document.getElementById('key-preview').textContent = preview;
 }
 
@@ -693,7 +693,7 @@ function renderStats(products, platform) {
   if (!products.length) return;
 
   const prices = products.map(p => {
-    if (platform==='ml') return parseFloat(p.price)||0;
+    if (platform==='ali') return (p._price||0) * 17.5;
     return parseFloat((p.product_price||'').replace(/[^0-9.]/g,''))||0;
   }).filter(Boolean);
 
@@ -701,11 +701,11 @@ function renderStats(products, platform) {
   const min = prices.length ? Math.min(...prices) : 0;
   const max = prices.length ? Math.max(...prices) : 0;
   const freeShipCount = products.filter(p =>
-    platform==='ml' ? p.shipping?.free_shipping : p.is_prime
+    platform==='ali' ? (parseInt(String(p._sales||'0').replace(/[^0-9]/g,''))||0) > 0 : p.is_prime
   ).length;
 
   const fmt = n => n > 0 ? '$' + n.toLocaleString('es-MX') : '—';
-  const isML = platform==='ml';
+  const isML = platform==='ali';
 
   document.getElementById('stat-total').textContent = products.length;
   document.getElementById('stat-total').className = 'stat-value' + (isML?' ml-color':'');
@@ -725,18 +725,23 @@ function exportCSV() {
   let headers, rows;
 
   if (isML) {
-    headers = ['Título','Precio','Precio Original','Descuento%','Vendidos','Envío Gratis','Condición','ID','URL','Score Reventa'];
+    headers = ['Título','Precio USD','Precio MXN aprox','Ventas','Rating','ID','URL','Score Reventa'];
     rows = currentProducts.map(p => {
-      const price = parseFloat(p.price)||0;
-      const orig = parseFloat(p.original_price)||0;
-      const disc = (orig>price&&price>0)?Math.round((1-price/orig)*100):0;
-      const sold = parseInt(p.sold_quantity)||0;
-      const score = calcScoreML(price, sold, p.shipping?.free_shipping, disc, p.listing_type_id);
+      const price = p._price || 0;
+      const sales = parseInt(String(p._sales||'0').replace(/[^0-9]/g,''))||0;
+      const rating = p._rating || 0;
+      const disc = 0;
+      const score = calcScoreAli(price, String(p._sales||''), rating, disc);
+      const priceMXN = Math.round(price * 17.5);
       return [
-        `"${(p.title||'').replace(/"/g,'""')}"`, price||'', orig||'', disc||'',
-        sold||'', p.shipping?.free_shipping?'SÍ':'NO',
-        p.condition==='new'?'Nuevo':p.condition==='used'?'Usado':'—',
-        p.id||'', (p.permalink || p.url || (p.id ? 'https://www.mercadolibre.com.mx/p/'+p.id : ''))||'', score
+        `"${(p._title||'').replace(/"/g,'""')}"`,
+        price>0?price.toFixed(2):'',
+        priceMXN||'',
+        p._sales||'',
+        rating||'',
+        p._id||'',
+        p._url||'',
+        score
       ].join(',');
     });
   } else {
@@ -765,7 +770,7 @@ function exportCSV() {
   const a = document.createElement('a');
   a.href = url;
   const q = document.getElementById('search-input').value.trim().replace(/\s+/g,'_').substring(0,25);
-  a.download = `${isML?'ml':'amazon'}_${q}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `${isML?'aliexpress':'amazon'}_${q}_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
